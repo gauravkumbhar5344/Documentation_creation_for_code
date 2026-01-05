@@ -1,0 +1,300 @@
+# Spring‑MVC Todo Application – Documentation
+
+Below is a concise guide that walks through the project layout, the role of each file, and a line‑by‑line explanation of the code.  
+Each section ends with the file name for quick reference.
+
+---
+
+## 1. Project File Structure
+
+```
+spring-mvc-todo/
+├── pom.xml
+├── src/
+│   ├── main/
+│   │   ├── java/
+│   │   │   └── com/
+│   │   │       └── example/
+│   │   │           └── todo/
+│   │   │               ├── config/
+│   │   │               │   ├── WebConfig.java
+│   │   │               │   └── WebInitializer.java
+│   │   │               ├── controller/
+│   │   │               │   └── TodoController.java
+│   │   │               └── model/
+│   │   │                   └── Todo.java
+│   │   └── webapp/
+│   │       └── WEB-INF/
+│   │           └── views/
+│   │               └── todo.jsp
+└── spring-mvc-todo.zip   (archive of the above)
+```
+
+---
+
+## 2. Purpose of Each File
+
+| File | Purpose |
+|------|---------|
+| **pom.xml** | Maven build descriptor – defines project metadata, dependencies, and build plugins. |
+| **WebConfig.java** | Spring MVC configuration class that registers a JSP view resolver. |
+| **WebInitializer.java** | Servlet 3.0+ initializer that registers the `DispatcherServlet` and maps it to `/`. |
+| **TodoController.java** | MVC controller that handles HTTP GET requests for the root URL and supplies a list of `Todo` objects to the view. |
+| **Todo.java** | Plain Java object (POJO) representing a todo item with `id`, `title`, and `completed` status. |
+| **todo.jsp** | JSP view that renders the list of todos using JSTL tags. |
+
+---
+
+## 3. Explanation of Code
+
+### `pom.xml`
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+                             http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- Basic project coordinates -->
+    <groupId>com.example</groupId>
+    <artifactId>spring-mvc-todo</artifactId>
+    <version>1.0-SNAPSHOT</version>
+    <packaging>war</packaging>
+
+    <!-- Java and Spring version properties -->
+    <properties>
+        <java.version>1.8</java.version>
+        <spring.version>5.3.30</spring.version>
+    </properties>
+
+    <!-- Dependencies -->
+    <dependencies>
+        <!-- Spring MVC core -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-webmvc</artifactId>
+            <version>${spring.version}</version>
+        </dependency>
+
+        <!-- Servlet API (provided by the container) -->
+        <dependency>
+            <groupId>javax.servlet</groupId>
+            <artifactId>javax.servlet-api</artifactId>
+            <version>4.0.1</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- JSTL API & implementation for JSP -->
+        <dependency>
+            <groupId>javax.servlet.jsp.jstl</groupId>
+            <artifactId>jstl-api</artifactId>
+            <version>1.2</version>
+        </dependency>
+        <dependency>
+            <groupId>org.glassfish.web</groupId>
+            <artifactId>jstl-impl</artifactId>
+            <version>1.2</version>
+        </dependency>
+    </dependencies>
+
+    <!-- Build plugins -->
+    <build>
+        <plugins>
+            <!-- Compiler plugin to enforce Java 1.8 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.8.1</version>
+                <configuration>
+                    <source>${java.version}</source>
+                    <target>${java.version}</target>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
+```
+
+* **Key points**  
+  * The project is packaged as a WAR, ready for deployment to a servlet container (Tomcat, Jetty, etc.).  
+  * `spring-webmvc` brings in all MVC components.  
+  * JSTL dependencies allow the JSP view to use core tags (`<c:forEach>`, `<c:out>`).  
+  * The compiler plugin ensures the source and target bytecode are Java 8.
+
+---
+
+### `WebConfig.java`
+
+```java
+package com.example.todo.config;
+
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.EnableWebMvc;
+import org.springframework.web.servlet.config.annotation.ViewResolverRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+@Configuration
+@EnableWebMvc
+public class WebConfig implements WebMvcConfigurer {
+    @Override
+    public void configureViewResolvers(ViewResolverRegistry registry) {
+        registry.jsp("/WEB-INF/views/", ".jsp");
+    }
+}
+```
+
+* **Annotations**  
+  * `@Configuration` – marks the class as a source of bean definitions.  
+  * `@EnableWebMvc` – imports Spring MVC’s default configuration (e.g., `RequestMappingHandlerMapping`).  
+
+* **`configureViewResolvers`**  
+  * Registers a JSP view resolver that looks for JSP files under `/WEB-INF/views/` and appends the `.jsp` suffix.  
+  * This means returning `"todo"` from a controller will resolve to `/WEB-INF/views/todo.jsp`.
+
+---
+
+### `WebInitializer.java`
+
+```java
+package com.example.todo.config;
+
+import org.springframework.web.servlet.support.AbstractAnnotationConfigDispatcherServletInitializer;
+
+public class WebInitializer extends AbstractAnnotationConfigDispatcherServletInitializer {
+    @Override
+    protected Class<?>[] getRootConfigClasses() {
+        return null; // No root context (no services/daos)
+    }
+
+    @Override
+    protected Class<?>[] getServletConfigClasses() {
+        return new Class[]{ WebConfig.class }; // MVC configuration
+    }
+
+    @Override
+    protected String[] getServletMappings() {
+        return new String[]{ "/" }; // Map DispatcherServlet to root
+    }
+}
+```
+
+* **Purpose**  
+  * Replaces the traditional `web.xml`.  
+  * Registers Spring’s `DispatcherServlet` automatically at application startup.  
+  * Uses `WebConfig` as the servlet context configuration.  
+  * The servlet is mapped to `/`, so all requests go through Spring MVC.
+
+---
+
+### `TodoController.java`
+
+```java
+package com.example.todo.controller;
+
+import com.example.todo.model.Todo;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.GetMapping;
+
+import java.util.Arrays;
+
+@Controller
+public class TodoController {
+    @GetMapping("/")
+    public String todoList(Model model) {
+        model.addAttribute("todos", Arrays.asList(new Todo(1L, "Sample task", false)));
+        return "todo";
+    }
+}
+```
+
+* **Annotations**  
+  * `@Controller` – marks the class as a Spring MVC controller.  
+  * `@GetMapping("/")` – maps HTTP GET requests for the root URL to `todoList()`.
+
+* **Method logic**  
+  * Creates a single `Todo` instance (`id=1`, `title="Sample task"`, `completed=false`).  
+  * Adds it to the `Model` under the key `"todos"`.  
+  * Returns `"todo"`, which Spring resolves to `/WEB-INF/views/todo.jsp` via the view resolver.
+
+---
+
+### `Todo.java`
+
+```java
+package com.example.todo.model;
+
+public class Todo {
+    private Long id;
+    private String title;
+    private boolean completed;
+
+    public Todo() {}
+
+    public Todo(Long id, String title, boolean completed) {
+        this.id = id;
+        this.title = title;
+        this.completed = completed;
+    }
+
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+
+    public String getTitle() { return title; }
+    public void setTitle(String title) { this.title = title; }
+
+    public boolean isCompleted() { return completed; }
+    public void setCompleted(boolean completed) { this.completed = completed; }
+}
+```
+
+* **Plain Java object** – represents a todo item.  
+* **Fields**  
+  * `id` – unique identifier.  
+  * `title` – task description.  
+  * `completed` – status flag.  
+* **Constructors & getters/setters** – standard JavaBean pattern, enabling Spring MVC to bind data and JSTL to access properties.
+
+---
+
+### `todo.jsp`
+
+```jsp
+<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8"/>
+    <title>Todo List</title>
+</head>
+<body>
+    <h1>Todo List</h1>
+    <ul>
+        <c:forEach var="t" items="${todos}">
+            <li>${t.title} - <c:out value="${t.completed ? 'Done' : 'Pending'}"/></li>
+        </c:forEach>
+    </ul>
+</body>
+</html>
+```
+
+* **Taglib declaration** – imports JSTL core tags (`c:forEach`, `c:out`).  
+* **Rendering logic**  
+  * Iterates over the `todos` collection supplied by the controller.  
+  * For each `Todo`, displays its title and a status string (`Done` if `completed` is `true`, otherwise `Pending`).  
+* **Result** – a simple unordered list of todo items.
+
+---
+
+## 4. Summary
+
+- **`pom.xml`** sets up the Maven build and dependencies.  
+- **`WebConfig.java`** configures Spring MVC’s view resolution.  
+- **`WebInitializer.java`** bootstraps the application without `web.xml`.  
+- **`TodoController.java`** handles the root request and supplies data.  
+- **`Todo.java`** is the domain model.  
+- **`todo.jsp`** renders the data to the browser.
+
+This minimal Spring MVC application demonstrates the core concepts: configuration, controller, model, and view. Feel free to extend it with services, repositories, or additional endpoints as needed.
